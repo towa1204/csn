@@ -23,7 +23,7 @@ export function createApp(pageRepo: PageRepository) {
       return err.getResponse();
     }
     return c.json(
-      { status: "error", message: err.message || "Internal Server Error" },
+      { status: "error", message: "Internal Server Error" },
       500,
     );
   });
