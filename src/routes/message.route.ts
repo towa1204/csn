@@ -26,6 +26,17 @@ export async function handleMessageSend(c: Context, pageRepo: PageRepository) {
     `Found ${pages.length} pages updated since ${body.from_timestamp}`,
   );
 
+  // 更新されたページがない場合は通知しない
+  if (pages.length === 0) {
+    console.log("No pages to notify, skipping notification");
+    return c.json({
+      status: "skipped",
+      service: body.notification,
+      pageCount: 0,
+      message: "No pages to notify",
+    });
+  }
+
   // 環境変数から設定を取得
   const config = body.notification === "Discord"
     ? getDiscordConfig()

@@ -194,9 +194,10 @@ Deno.test("POST /api/message - データが空の場合（Discord）", async () 
 
   assertEquals(res.status, 200);
   const json = await res.json();
-  assertEquals(json.status, "sent");
+  assertEquals(json.status, "skipped");
   assertEquals(json.service, "Discord");
   assertEquals(json.pageCount, 0); // データが0件
+  assertEquals(json.message, "No pages to notify");
 
   kv.close();
 });
@@ -224,9 +225,10 @@ Deno.test("POST /api/message - データが空の場合（X）", async () => {
 
   assertEquals(res.status, 200);
   const json = await res.json();
-  assertEquals(json.status, "sent");
+  assertEquals(json.status, "skipped");
   assertEquals(json.service, "X");
-  assertEquals(json.pageCount, 0); // データが0件
+  assertEquals(json.pageCount, 0);
+  assertEquals(json.message, "No pages to notify"); // データが0件
 
   kv.close();
 });
