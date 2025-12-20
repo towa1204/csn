@@ -113,8 +113,23 @@ export function createApp(pageRepo: PageRepository) {
       `Found ${pages.length} pages updated since ${body.from_timestamp}`,
     );
 
+    // 環境変数から設定を取得
+    const config = body.notification === "Discord"
+      ? {
+        webhookUrl: Deno.env.get("DISCORD_WEBHOOK_URL"),
+      }
+      : {
+        apiKey: Deno.env.get("API_KEY"),
+        apiKeySecret: Deno.env.get("API_KEY_SECRET"),
+        accessToken: Deno.env.get("ACCESS_TOKEN"),
+        accessTokenSecret: Deno.env.get("ACCESS_TOKEN_SECRET"),
+      };
+
     // 通知サービスを作成してメッセージを送信
-    const notificationService = NotificationFactory.create(body.notification);
+    const notificationService = NotificationFactory.create(
+      body.notification,
+      config,
+    );
     await notificationService.send(pages);
 
     return c.json({

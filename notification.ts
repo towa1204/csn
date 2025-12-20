@@ -9,9 +9,27 @@ export interface NotificationServiceHandler {
 }
 
 /**
+ * Discord通知サービスの設定
+ */
+export interface DiscordConfig {
+  webhookUrl?: string;
+}
+
+/**
+ * X通知サービスの設定
+ */
+export interface XConfig {
+  apiKey?: string;
+  apiKeySecret?: string;
+  accessToken?: string;
+  accessTokenSecret?: string;
+}
+
+/**
  * Discord通知サービス
  */
 export class DiscordService implements NotificationServiceHandler {
+  constructor(private config: DiscordConfig) {}
   /**
    * メッセージを整形して送信
    */
@@ -45,18 +63,16 @@ export class DiscordService implements NotificationServiceHandler {
    * Discord Webhookへ送信
    */
   private async sendToDiscord(message: string): Promise<void> {
-    const webhookUrl = Deno.env.get("DISCORD_WEBHOOK_URL");
-
     console.log("=== Discord Message ===");
     console.log(message);
     console.log("=======================");
 
-    if (!webhookUrl) {
-      console.log("DISCORD_WEBHOOK_URL not set, skipping actual send");
+    if (!this.config.webhookUrl) {
+      console.log("Discord webhook URL not configured, skipping actual send");
       return;
     }
 
-    await fetch(webhookUrl, {
+    await fetch(this.config.webhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content: message }),
@@ -68,6 +84,7 @@ export class DiscordService implements NotificationServiceHandler {
  * X(Twitter)通知サービス
  */
 export class XService implements NotificationServiceHandler {
+  constructor(private config: XConfig) {}
   /**
    * メッセージを整形して送信
    */
@@ -135,13 +152,11 @@ export class XService implements NotificationServiceHandler {
     console.log(message);
     console.log("========================");
 
-    const apiKey = Deno.env.get("API_KEY");
-    const apiKeySecret = Deno.env.get("API_KEY_SECRET");
-    const accessToken = Deno.env.get("ACCESS_TOKEN");
-    const accessTokenSecret = Deno.env.get("ACCESS_TOKEN_SECRET");
+    const { apiKey, apiKeySecret, accessToken, accessTokenSecret } =
+      this.config;
 
     if (!apiKey || !apiKeySecret || !accessToken || !accessTokenSecret) {
-      console.log("X API credentials not set, skipping actual send");
+      console.log("X API credentials not configured, skipping actual send");
       return;
     }
 
@@ -163,12 +178,15 @@ export class XService implements NotificationServiceHandler {
  * 通知サービスのファクトリー
  */
 export class NotificationFactory {
-  static create(service: NotificationService): NotificationServiceHandler {
+  static create(
+    service: NotificationService,
+    config: DiscordConfig | XConfig,
+  ): NotificationServiceHandler {
     switch (service) {
       case "Discord":
-        return new DiscordService();
+        return new DiscordService(config as DiscordConfig);
       case "X":
-        return new XService();
+        return new XService(config as XConfig);
       default:
         throw new Error(`Unknown notification service: ${service}`);
     }
