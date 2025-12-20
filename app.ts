@@ -4,7 +4,8 @@ import { HTTPException } from "hono/http-exception";
 import { CosenseWebhookRequest, MessageSendRequest, Page } from "./types.ts";
 import { dateJSTTimeFormat } from "./utils.ts";
 import { PageRepository } from "./kv.ts";
-import { NotificationFactory } from "./notification.ts";
+import { NotificationFactory } from "./services/notification/index.ts";
+import { getDiscordConfig, getXConfig } from "./config/env.ts";
 
 /**
  * プロジェクト名をURLから抽出
@@ -115,15 +116,8 @@ export function createApp(pageRepo: PageRepository) {
 
     // 環境変数から設定を取得
     const config = body.notification === "Discord"
-      ? {
-        webhookUrl: Deno.env.get("DISCORD_WEBHOOK_URL"),
-      }
-      : {
-        apiKey: Deno.env.get("API_KEY"),
-        apiKeySecret: Deno.env.get("API_KEY_SECRET"),
-        accessToken: Deno.env.get("ACCESS_TOKEN"),
-        accessTokenSecret: Deno.env.get("ACCESS_TOKEN_SECRET"),
-      };
+      ? getDiscordConfig()
+      : getXConfig();
 
     // 通知サービスを作成してメッセージを送信
     const notificationService = NotificationFactory.create(
