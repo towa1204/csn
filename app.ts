@@ -72,24 +72,5 @@ export function createApp(pageRepo: PageRepository) {
     return c.json({ status: "received", count: body.attachments.length });
   });
 
-  /**
-   * KVに保存されたページを取得
-   */
-  api.get("/pages/:webhookId", async (c) => {
-    const { webhookId } = c.req.param();
-    const entries = await pageRepo.listByWebhookId(webhookId);
-    return c.json({ count: entries.length, entries });
-  });
-
-  /**
-   * KVに保存された全データを取得（デバッグ用）
-   */
-  api.get("/kv/dump", async (c) => {
-    const entries = await pageRepo.listAll();
-    console.log("=== KV Dump ===");
-    console.log(JSON.stringify(entries, null, 2));
-    return c.json({ count: entries.length, entries });
-  });
-
   return api;
 }

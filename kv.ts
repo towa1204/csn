@@ -34,58 +34,6 @@ export class PageRepository {
   }
 
   /**
-   * KVからすべてのエントリを取得する
-   */
-  async listAll() {
-    const entries = [];
-    for await (const entry of this.kv.list<Page>({ prefix: [] })) {
-      entries.push({
-        key: entry.key,
-        value: entry.value,
-        versionstamp: entry.versionstamp,
-      });
-    }
-    return entries;
-  }
-
-  /**
-   * 特定のwebhookIdのページを取得する
-   */
-  async listByWebhookId(webhookId: string) {
-    const entries = [];
-    const prefix: Deno.KvKey = ["webhookId", webhookId];
-    for await (const entry of this.kv.list<Page>({ prefix })) {
-      entries.push({
-        key: entry.key,
-        value: entry.value,
-        versionstamp: entry.versionstamp,
-      });
-    }
-    return entries;
-  }
-
-  /**
-   * 特定のprojectのページを取得する
-   */
-  async listByProject(webhookId: string, projectName: string) {
-    const entries = [];
-    const prefix: Deno.KvKey = [
-      "webhookId",
-      webhookId,
-      "projectName",
-      projectName,
-    ];
-    for await (const entry of this.kv.list<Page>({ prefix })) {
-      entries.push({
-        key: entry.key,
-        value: entry.value,
-        versionstamp: entry.versionstamp,
-      });
-    }
-    return entries;
-  }
-
-  /**
    * 一週間以上前のページを削除する
    */
   async deleteOldPages(webhookId: string, cutoffDate: Date): Promise<number> {
