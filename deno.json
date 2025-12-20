@@ -1,5 +1,6 @@
 {
   "imports": {
+    "hono": "npm:hono@^4.11.1",
     "twitter-api-v2": "npm:twitter-api-v2@^1.28.0"
   },
   "tasks": {
