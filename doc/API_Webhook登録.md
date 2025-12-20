@@ -36,6 +36,18 @@ Content-Type: application/json
 
 ### リクエスト例
 
+**推奨: webhookIdを自動生成**
+
+```bash
+curl -X POST https://your-domain.deno.dev/api/admin/webhooks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "apiKey": "your-secret-api-key"
+  }'
+```
+
+**オプション: webhookIdを手動指定**
+
 ```bash
 curl -X POST https://your-domain.deno.dev/api/admin/webhooks \
   -H "Content-Type: application/json" \
@@ -49,10 +61,23 @@ curl -X POST https://your-domain.deno.dev/api/admin/webhooks \
 
 ### 成功: 新規登録 (201 Created)
 
+**自動生成の場合:**
+
 ```json
 {
   "status": "registered",
-  "webhookId": "my-project-webhook"
+  "webhookId": "550e8400-e29b-41d4-a716-446655440000",
+  "generated": true
+}
+```
+
+**手動指定の場合:**
+
+```json
+{
+  "status": "registered",
+  "webhookId": "my-project-webhook",
+  "generated": false
 }
 ```
 
@@ -64,12 +89,6 @@ curl -X POST https://your-domain.deno.dev/api/admin/webhooks \
   "webhookId": "my-project-webhook",
   "message": "This webhook ID is already registered"
 }
-```
-
-### エラー: webhookId未指定 (400 Bad Request)
-
-```
-webhookId is required
 ```
 
 ### エラー: apiKey未指定 (400 Bad Request)
@@ -102,10 +121,15 @@ Server configuration error
 
 ### webhookId
 
-- **必須フィールド**
-- **形式**: 英数字 (a-z, A-Z, 0-9)、ハイフン (-)、アンダースコア (_) のみ
+- **オプショナルフィールド**（未指定を推奨）
+- **未指定の場合**: サーバー側でUUIDv4（例:
+  `550e8400-e29b-41d4-a716-446655440000`）を自動生成
+- **手動指定時の形式**: 英数字 (a-z, A-Z, 0-9)、ハイフン (-)、アンダースコア (_)
+  のみ
 - **例**: `my-webhook-123`, `project_webhook`, `webhook-001`
 - **NGケース**: スペース、特殊文字を含む
+- **推奨**:
+  セキュリティのため、webhookIdは指定せずにサーバー側で自動生成することを推奨
 
 ### apiKey
 
@@ -154,19 +178,24 @@ deno task start --env
 
 ## 使用例
 
-### シナリオ1: 新しいプロジェクト用のwebhookIdを登録
+### シナリオ1: 新しいプロジェクト用のwebhookIdを自動生成して登録（推奨）
 
 ```bash
 # APIキーを環境変数から取得
 API_KEY=$(cat .env | grep ADMIN_API_KEY | cut -d '=' -f2)
 
-# webhookIdを登録
-curl -X POST https://your-app.deno.dev/api/admin/webhooks \
+# webhookIdを自動生成して登録
+RESPONSE=$(curl -s -X POST https://your-app.deno.dev/api/admin/webhooks \
   -H "Content-Type: application/json" \
   -d "{
-    \"webhookId\": \"new-project-webhook\",
     \"apiKey\": \"$API_KEY\"
-  }"
+  }")
+
+echo "Response: $RESPONSE"
+
+# 生成されたwebhookIdを取得
+WEBHOOK_ID=$(echo $RESPONSE | jq -r '.webhookId')
+echo "Generated Webhook ID: $WEBHOOK_ID"
 ```
 
 ### シナリオ2: スクリプトで複数のwebhookIdを一括登録

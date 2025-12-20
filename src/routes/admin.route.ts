@@ -3,7 +3,6 @@ import { HTTPException } from "hono/http-exception";
 import { PageRepository } from "../kv.ts";
 
 export interface RegisterWebhookRequest {
-  webhookId: string;
   apiKey: string;
 }
 
@@ -18,18 +17,9 @@ export async function handleRegisterWebhook(
 
   console.log("Register webhook request:", body);
 
-  // バリデーション
-  if (!body.webhookId) {
-    throw new HTTPException(400, { message: "webhookId is required" });
-  }
-
-  // webhookIdの形式チェック（英数字とハイフンのみ）
-  if (!/^[a-zA-Z0-9-_]+$/.test(body.webhookId)) {
-    throw new HTTPException(400, {
-      message:
-        "webhookId must contain only alphanumeric characters, hyphens, and underscores",
-    });
-  }
+  // 安全なwebhookIdを自動生成
+  const webhookId = crypto.randomUUID();
+  console.log(`Generated webhook ID: ${webhookId}`);
 
   // APIキーのバリデーション
   if (!body.apiKey) {
@@ -49,22 +39,22 @@ export async function handleRegisterWebhook(
   }
 
   // 既に登録されているかチェック
-  const isRegistered = await pageRepo.isValidWebhookId(body.webhookId);
+  const isRegistered = await pageRepo.isValidWebhookId(webhookId);
   if (isRegistered) {
     return c.json({
       status: "already_registered",
-      webhookId: body.webhookId,
+      webhookId: webhookId,
       message: "This webhook ID is already registered",
     });
   }
 
   // webhookIdを登録
-  await pageRepo.registerWebhookId(body.webhookId);
+  await pageRepo.registerWebhookId(webhookId);
 
-  console.log(`Registered webhook ID: ${body.webhookId}`);
+  console.log(`Registered webhook ID: ${webhookId}`);
 
   return c.json({
     status: "registered",
-    webhookId: body.webhookId,
+    webhookId: webhookId,
   }, 201);
 }
