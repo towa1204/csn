@@ -4,6 +4,7 @@ import { HTTPException } from "hono/http-exception";
 import { PageRepository } from "./kv.ts";
 import { handleWebhook } from "./routes/webhook.route.ts";
 import { handleMessageSend } from "./routes/message.route.ts";
+import { handleRegisterWebhook } from "./routes/admin.route.ts";
 
 // 後方互換性のためにエクスポート
 export { extractProjectName } from "./routes/webhook.route.ts";
@@ -30,6 +31,7 @@ export function createApp(pageRepo: PageRepository) {
   // ルート登録
   api.post("/webhooks/:webhookId/slack", (c) => handleWebhook(c, pageRepo));
   api.post("/message", (c) => handleMessageSend(c, pageRepo));
+  api.post("/admin/webhooks", (c) => handleRegisterWebhook(c, pageRepo));
 
   return api;
 }
