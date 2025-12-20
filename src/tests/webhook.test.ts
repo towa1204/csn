@@ -3,9 +3,48 @@ import { createApp } from "../app.ts";
 import { PageRepository } from "../kv.ts";
 import { CosenseWebhookRequest } from "../types.ts";
 
+Deno.test("POST /api/webhooks/:webhookId/slack - 未登録のwebhookId", async () => {
+  const kv = await Deno.openKv(":memory:");
+  const pageRepo = new PageRepository(kv);
+  const app = createApp(pageRepo);
+
+  const webhookBody: CosenseWebhookRequest = {
+    text: "test",
+    mrkdown: true,
+    username: "testuser",
+    attachments: [
+      {
+        title: "TestPage",
+        title_link: "https://scrapbox.io/test-project/TestPage",
+        text: "Test content",
+        rawText: "Test raw",
+        mrkdwn_in: [],
+        author_name: "TestAuthor",
+      },
+    ],
+  };
+
+  const res = await app.request(
+    "/api/webhooks/unregistered-webhook/slack",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(webhookBody),
+    },
+  );
+
+  assertEquals(res.status, 400);
+  const text = await res.text();
+  assertEquals(text, "Invalid webhook ID");
+
+  kv.close();
+});
+
 Deno.test("POST /api/webhooks/:webhookId/slack - 正常なリクエスト", async () => {
   const kv = await Deno.openKv(":memory:");
   const pageRepo = new PageRepository(kv);
+  // webhookIdを事前登録
+  await pageRepo.registerWebhookId("test-webhook");
   const app = createApp(pageRepo);
 
   const webhookBody: CosenseWebhookRequest = {
@@ -44,6 +83,8 @@ Deno.test("POST /api/webhooks/:webhookId/slack - 正常なリクエスト", asyn
 Deno.test("POST /api/webhooks/:webhookId/slack - attachmentsが空", async () => {
   const kv = await Deno.openKv(":memory:");
   const pageRepo = new PageRepository(kv);
+  // webhookIdを事前登録
+  await pageRepo.registerWebhookId("test-webhook");
   const app = createApp(pageRepo);
 
   const webhookBody = {
@@ -72,6 +113,8 @@ Deno.test("POST /api/webhooks/:webhookId/slack - attachmentsが空", async () =>
 Deno.test("POST /api/webhooks/:webhookId/slack - 同じページを複数回更新（著者マージ）", async () => {
   const kv = await Deno.openKv(":memory:");
   const pageRepo = new PageRepository(kv);
+  // webhookIdを事前登録
+  await pageRepo.registerWebhookId("test-webhook");
   const app = createApp(pageRepo);
 
   const createWebhookBody = (author: string): CosenseWebhookRequest => ({
@@ -129,6 +172,8 @@ Deno.test("POST /api/webhooks/:webhookId/slack - 同じページを複数回更�
 Deno.test("POST /api/webhooks/:webhookId/slack - 一週間以上前のデータを削除", async () => {
   const kv = await Deno.openKv(":memory:");
   const pageRepo = new PageRepository(kv);
+  // webhookIdを事前登録
+  await pageRepo.registerWebhookId("test-webhook");
   const app = createApp(pageRepo);
 
   // 一週間以上前のデータを手動で作成

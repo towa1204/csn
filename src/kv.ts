@@ -8,6 +8,26 @@ export class PageRepository {
   }
 
   /**
+   * webhookIdが登録されているか確認する
+   */
+  async isValidWebhookId(webhookId: string): Promise<boolean> {
+    const key = ["webhooks", webhookId];
+    const entry = await this.kv.get(key);
+    return entry.value !== null;
+  }
+
+  /**
+   * webhookIdを登録する
+   */
+  async registerWebhookId(webhookId: string): Promise<void> {
+    const key = ["webhooks", webhookId];
+    await this.kv.set(key, {
+      registered: true,
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  /**
    * ページをKVに保存する
    */
   async savePage(

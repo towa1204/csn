@@ -21,6 +21,12 @@ export async function handleWebhook(c: Context, pageRepo: PageRepository) {
   console.log("Body:", body);
   console.log(`Received Slack webhook for ID: ${webhookId}`);
 
+  // webhookIdの存在チェック
+  const isValid = await pageRepo.isValidWebhookId(webhookId);
+  if (!isValid) {
+    throw new HTTPException(400, { message: "Invalid webhook ID" });
+  }
+
   if (!body.attachments || body.attachments.length === 0) {
     throw new HTTPException(400, { message: "No attachments" });
   }
