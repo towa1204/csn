@@ -5,7 +5,9 @@
     "twitter-api-v2": "npm:twitter-api-v2@^1.28.0"
   },
   "tasks": {
-    "start": "deno run -A --env --unstable-kv ./main.ts",
-    "test": "deno test -A --unstable-kv"
+    "start": "deno run -A --env --unstable-kv ./src/main.ts",
+    "test": "deno test -A --unstable-kv ./src/tests/",
+    "test:watch": "deno test -A --unstable-kv --watch ./src/tests/",
+    "test:coverage": "deno test -A --unstable-kv --coverage=coverage ./src/tests/ && deno coverage coverage"
   }
 }

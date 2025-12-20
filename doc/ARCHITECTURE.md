@@ -6,25 +6,28 @@
 
 ```
 ssn/
-├── config/              # 設定関連
-│   └── env.ts          # 環境変数管理
-├── services/           # ビジネスロジック
-│   └── notification/   # 通知サービス
-│       ├── types.ts            # 型定義
-│       ├── discord.service.ts  # Discord実装
-│       ├── x.service.ts        # X/Twitter実装
-│       ├── factory.ts          # ファクトリーパターン
-│       └── index.ts            # エクスポート
-├── tests/              # テストファイル
-│   ├── webhook.test.ts # Webhook関連テスト
-│   ├── message.test.ts # メッセージ送信テスト
-│   └── utils.test.ts   # ユーティリティテスト
+├── src/                # ソースコード
+│   ├── config/              # 設定関連
+│   │   └── env.ts          # 環境変数管理
+│   ├── services/           # ビジネスロジック
+│   │   └── notification/   # 通知サービス
+│   │       ├── types.ts            # 型定義
+│   │       ├── discord.service.ts  # Discord実装
+│   │       ├── x.service.ts        # X/Twitter実装
+│   │       ├── factory.ts          # ファクトリーパターン
+│   │       └── index.ts            # エクスポート
+│   ├── tests/              # テストファイル
+│   │   ├── webhook.test.ts # Webhook関連テスト
+│   │   ├── message.test.ts # メッセージ送信テスト
+│   │   └── utils.test.ts   # ユーティリティテスト
+│   ├── app.ts              # アプリケーションロジック
+│   ├── main.ts             # エントリーポイント
+│   ├── kv.ts               # データアクセス層
+│   ├── types.ts            # 共通型定義
+│   └── utils.ts            # ユーティリティ関数
 ├── doc/                # ドキュメント
-├── app.ts              # アプリケーションロジック
-├── main.ts             # エントリーポイント
-├── kv.ts               # データアクセス層
-├── types.ts            # 共通型定義
-└── utils.ts            # ユーティリティ関数
+├── deno.json           # Deno設定
+└── .env                # 環境変数
 ```
 
 ## アーキテクチャパターン
