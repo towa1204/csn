@@ -84,4 +84,24 @@ export class PageRepository {
     }
     return entries;
   }
+
+  /**
+   * 一週間以上前のページを削除する
+   */
+  async deleteOldPages(webhookId: string, cutoffDate: Date): Promise<number> {
+    const prefix: Deno.KvKey = ["webhookId", webhookId];
+    let deletedCount = 0;
+
+    for await (const entry of this.kv.list<Page>({ prefix })) {
+      if (entry.value && entry.value.updatedAt) {
+        const updatedAt = new Date(entry.value.updatedAt);
+        if (updatedAt < cutoffDate) {
+          await this.kv.delete(entry.key);
+          deletedCount++;
+        }
+      }
+    }
+
+    return deletedCount;
+  }
 }

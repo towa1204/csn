@@ -222,3 +222,97 @@ Deno.test("GET /api/kv/dump - 全データ取得", async () => {
 
   kv.close();
 });
+
+Deno.test("POST /api/webhooks/:webhookId/slack - 一週間以上前のデータを削除", async () => {
+  const kv = await Deno.openKv(":memory:");
+  const pageRepo = new PageRepository(kv);
+  const app = createApp(pageRepo);
+
+  // 一週間以上前のデータを手動で作成
+  const eightDaysAgo = new Date();
+  eightDaysAgo.setDate(eightDaysAgo.getDate() - 8);
+  const oldPageKey = [
+    "webhookId",
+    "test-webhook",
+    "projectName",
+    "test-project",
+    "pageName",
+    "OldPage",
+  ] as const;
+  await kv.set(oldPageKey, {
+    projectName: "test-project",
+    name: "OldPage",
+    link: "https://scrapbox.io/test-project/OldPage",
+    authors: ["OldAuthor"],
+    updatedAt: eightDaysAgo.toISOString(),
+  });
+
+  // 6日前のデータ（削除されない）
+  const sixDaysAgo = new Date();
+  sixDaysAgo.setDate(sixDaysAgo.getDate() - 6);
+  const recentPageKey = [
+    "webhookId",
+    "test-webhook",
+    "projectName",
+    "test-project",
+    "pageName",
+    "RecentPage",
+  ] as const;
+  await kv.set(recentPageKey, {
+    projectName: "test-project",
+    name: "RecentPage",
+    link: "https://scrapbox.io/test-project/RecentPage",
+    authors: ["RecentAuthor"],
+    updatedAt: sixDaysAgo.toISOString(),
+  });
+
+  // 保存前の確認
+  const beforeEntries = await pageRepo.listByWebhookId("test-webhook");
+  assertEquals(beforeEntries.length, 2);
+
+  // 新しいデータを追加（これにより古いデータが削除される）
+  const webhookBody: CosenseWebhookRequest = {
+    text: "test",
+    mrkdown: true,
+    username: "testuser",
+    attachments: [
+      {
+        title: "NewPage",
+        title_link: "https://scrapbox.io/test-project/NewPage",
+        text: "New content",
+        rawText: "New raw",
+        mrkdwn_in: [],
+        author_name: "NewAuthor",
+      },
+    ],
+  };
+
+  await app.request(
+    "/api/webhooks/test-webhook/slack",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(webhookBody),
+    },
+  );
+
+  // 保存後の確認（一週間以上前のデータは削除されている）
+  const afterEntries = await pageRepo.listByWebhookId("test-webhook");
+  assertEquals(afterEntries.length, 2); // RecentPageとNewPageのみ残る
+
+  // OldPageが削除されていることを確認
+  const oldPageExists = afterEntries.some((e) => e.value.name === "OldPage");
+  assertEquals(oldPageExists, false);
+
+  // RecentPageが残っていることを確認
+  const recentPageExists = afterEntries.some((e) =>
+    e.value.name === "RecentPage"
+  );
+  assertEquals(recentPageExists, true);
+
+  // NewPageが追加されていることを確認
+  const newPageExists = afterEntries.some((e) => e.value.name === "NewPage");
+  assertEquals(newPageExists, true);
+
+  kv.close();
+});

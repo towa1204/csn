@@ -61,6 +61,14 @@ export function createApp(pageRepo: PageRepository) {
       console.log("Saved page:", page);
     }
 
+    // 一週間以上前のデータを削除
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    const deletedCount = await pageRepo.deleteOldPages(webhookId, oneWeekAgo);
+    if (deletedCount > 0) {
+      console.log(`Deleted ${deletedCount} old pages`);
+    }
+
     return c.json({ status: "received", count: body.attachments.length });
   });
 
