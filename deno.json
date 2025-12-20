@@ -1,0 +1,8 @@
+{
+  "imports": {
+    "twitter-api-v2": "npm:twitter-api-v2@^1.28.0"
+  },
+  "tasks": {
+    "start": "deno run -A --env ./main.ts"
+  }
+}

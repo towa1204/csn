@@ -1,0 +1,16 @@
+{
+  "version": "5",
+  "specifiers": {
+    "npm:twitter-api-v2@^1.28.0": "1.28.0"
+  },
+  "npm": {
+    "twitter-api-v2@1.28.0": {
+      "integrity": "sha512-VBmiAMylCEr94OChaHJ+0TBrOZNrduwWUe7QLoa/KdOdv1fNiToJ0xZGOrNKFd2B7jrAdAkfUW6yA5LuXYOYLQ=="
+    }
+  },
+  "workspace": {
+    "dependencies": [
+      "npm:twitter-api-v2@^1.28.0"
+    ]
+  }
+}
