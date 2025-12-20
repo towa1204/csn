@@ -35,6 +35,12 @@ export async function handleWebhook(c: Context, pageRepo: PageRepository) {
 
   // 各添付ファイルを処理してKVに保存
   for (const attachment of body.attachments) {
+    // titleが空の場合はスキップ
+    if (!attachment.title || !attachment.title.trim()) {
+      console.warn("Skipping attachment with empty title:", attachment);
+      continue;
+    }
+
     const page: Page = {
       projectName,
       name: attachment.title,

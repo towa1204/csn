@@ -35,6 +35,18 @@ export class PageRepository {
     projectName: string,
     page: Page,
   ): Promise<void> {
+    // デバッグ用：値の検証
+    if (!webhookId || !projectName || !page.name) {
+      console.error("Invalid KV key values:", {
+        webhookId,
+        projectName,
+        pageName: page.name,
+      });
+      throw new Error(
+        `Invalid KV key: webhookId=${webhookId}, projectName=${projectName}, pageName=${page.name}`,
+      );
+    }
+
     const pageKey: PageKey = [
       "webhookId",
       webhookId,
