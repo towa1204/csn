@@ -6,6 +6,7 @@
     "jsr:@std/internal@^1.0.12": "1.0.12",
     "jsr:@std/internal@^1.0.5": "1.0.10",
     "npm:hono@^4.11.1": "4.11.1",
+    "npm:twitter-api-v2@*": "1.28.0",
     "npm:twitter-api-v2@^1.28.0": "1.28.0"
   },
   "jsr": {

@@ -1,9 +1,10 @@
 import { Hono } from "hono";
 import { logger } from "hono/logger";
 import { HTTPException } from "hono/http-exception";
-import { CosenseWebhookRequest, Page } from "./types.ts";
+import { CosenseWebhookRequest, MessageSendRequest, Page } from "./types.ts";
 import { dateJSTTimeFormat } from "./utils.ts";
 import { PageRepository } from "./kv.ts";
+import { NotificationFactory } from "./notification.ts";
 
 /**
  * プロジェクト名をURLから抽出
@@ -70,6 +71,57 @@ export function createApp(pageRepo: PageRepository) {
     }
 
     return c.json({ status: "received", count: body.attachments.length });
+  });
+
+  /**
+   * 外部サービスへメッセージを送信
+   */
+  api.post("/message", async (c) => {
+    const body = await c.req.json() as MessageSendRequest;
+
+    console.log("Message send request:", body);
+
+    // バリデーション
+    if (!body.webhookId || !body.notification || !body.from_timestamp) {
+      throw new HTTPException(400, {
+        message: "webhookId, notification, and from_timestamp are required",
+      });
+    }
+
+    if (body.notification !== "Discord" && body.notification !== "X") {
+      throw new HTTPException(400, {
+        message: "notification must be 'Discord' or 'X'",
+      });
+    }
+
+    // from_timestampの日付フォーマット検証
+    try {
+      new Date(body.from_timestamp);
+    } catch {
+      throw new HTTPException(400, {
+        message: "Invalid from_timestamp format. Expected ISO 8601 format",
+      });
+    }
+
+    // 指定時刻以降のページを取得
+    const pages = await pageRepo.listPagesSince(
+      body.webhookId,
+      body.from_timestamp,
+    );
+
+    console.log(
+      `Found ${pages.length} pages updated since ${body.from_timestamp}`,
+    );
+
+    // 通知サービスを作成してメッセージを送信
+    const notificationService = NotificationFactory.create(body.notification);
+    await notificationService.send(pages);
+
+    return c.json({
+      status: "sent",
+      service: body.notification,
+      pageCount: pages.length,
+    });
   });
 
   return api;

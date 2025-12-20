@@ -5,7 +5,7 @@
     "twitter-api-v2": "npm:twitter-api-v2@^1.28.0"
   },
   "tasks": {
-    "start": "deno run -A --env ./main.ts",
+    "start": "deno run -A --env --unstable-kv ./main.ts",
     "test": "deno test -A --unstable-kv"
   }
 }

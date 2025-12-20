@@ -38,3 +38,17 @@ export type Page = {
   authors: string[];
   updatedAt: string;
 };
+
+/**
+ * メッセージ送信APIのリクエスト
+ */
+export type MessageSendRequest = {
+  webhookId: string;
+  notification: "Discord" | "X";
+  from_timestamp: string;
+};
+
+/**
+ * 通知サービスの種類
+ */
+export type NotificationService = "Discord" | "X";

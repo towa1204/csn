@@ -52,4 +52,27 @@ export class PageRepository {
 
     return deletedCount;
   }
+
+  /**
+   * 指定した時刻以降に更新されたページを取得する
+   */
+  async listPagesSince(
+    webhookId: string,
+    fromTimestamp: string,
+  ): Promise<Page[]> {
+    const prefix: Deno.KvKey = ["webhookId", webhookId];
+    const pages: Page[] = [];
+    const fromDate = new Date(fromTimestamp);
+
+    for await (const entry of this.kv.list<Page>({ prefix })) {
+      if (entry.value && entry.value.updatedAt) {
+        const updatedAt = new Date(entry.value.updatedAt);
+        if (updatedAt >= fromDate) {
+          pages.push(entry.value);
+        }
+      }
+    }
+
+    return pages;
+  }
 }

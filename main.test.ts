@@ -1,7 +1,7 @@
 import { assertEquals } from "@std/assert";
 import { createApp, extractProjectName } from "./app.ts";
 import { PageRepository } from "./kv.ts";
-import { CosenseWebhookRequest } from "./types.ts";
+import { CosenseWebhookRequest, MessageSendRequest } from "./types.ts";
 
 Deno.test("extractProjectName - URLからプロジェクト名を抽出", () => {
   const url = "https://scrapbox.io/my-project/SomePage";
@@ -224,6 +224,172 @@ Deno.test("POST /api/webhooks/:webhookId/slack - 一週間以上前のデータ�
   ] as const;
   const newPageAfter = await kv.get(newPageKey);
   assertEquals(newPageAfter.value !== null, true); // NewPageが追加されている
+
+  kv.close();
+});
+
+Deno.test("POST /api/message - Discord通知の送信", async () => {
+  const kv = await Deno.openKv(":memory:");
+  const pageRepo = new PageRepository(kv);
+  const app = createApp(pageRepo);
+
+  // テストデータを準備（2つのページ、異なる時刻）
+  const now = new Date();
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const oldPageKey = [
+    "webhookId",
+    "test-webhook",
+    "projectName",
+    "test-project",
+    "pageName",
+    "OldPage",
+  ] as const;
+  await kv.set(oldPageKey, {
+    projectName: "test-project",
+    name: "OldPage",
+    link: "https://scrapbox.io/test-project/OldPage",
+    authors: ["OldAuthor"],
+    updatedAt: yesterday.toISOString(),
+  });
+
+  const recentPageKey = [
+    "webhookId",
+    "test-webhook",
+    "projectName",
+    "test-project",
+    "pageName",
+    "RecentPage",
+  ] as const;
+  await kv.set(recentPageKey, {
+    projectName: "test-project",
+    name: "RecentPage",
+    link: "https://scrapbox.io/test-project/RecentPage",
+    authors: ["RecentAuthor"],
+    updatedAt: now.toISOString(),
+  });
+
+  // 1時間前のfrom_timestampを指定（RecentPageのみ取得されるべき）
+  const oneHourAgo = new Date(now);
+  oneHourAgo.setHours(oneHourAgo.getHours() - 1);
+
+  const messageRequest: MessageSendRequest = {
+    webhookId: "test-webhook",
+    notification: "Discord",
+    from_timestamp: oneHourAgo.toISOString(),
+  };
+
+  const res = await app.request(
+    "/api/message",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(messageRequest),
+    },
+  );
+
+  assertEquals(res.status, 200);
+  const json = await res.json();
+  assertEquals(json.status, "sent");
+  assertEquals(json.service, "Discord");
+  assertEquals(json.pageCount, 1); // RecentPageのみ
+
+  kv.close();
+});
+
+Deno.test("POST /api/message - X通知の送信", async () => {
+  const kv = await Deno.openKv(":memory:");
+  const pageRepo = new PageRepository(kv);
+  const app = createApp(pageRepo);
+
+  // テストデータを準備
+  const now = new Date();
+  const pageKey = [
+    "webhookId",
+    "test-webhook",
+    "projectName",
+    "test-project",
+    "pageName",
+    "TestPage",
+  ] as const;
+  await kv.set(pageKey, {
+    projectName: "test-project",
+    name: "TestPage",
+    link: "https://scrapbox.io/test-project/TestPage",
+    authors: ["Author1", "Author2"],
+    updatedAt: now.toISOString(),
+  });
+
+  const messageRequest: MessageSendRequest = {
+    webhookId: "test-webhook",
+    notification: "X",
+    from_timestamp: new Date(now.getTime() - 3600000).toISOString(), // 1時間前
+  };
+
+  const res = await app.request(
+    "/api/message",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(messageRequest),
+    },
+  );
+
+  assertEquals(res.status, 200);
+  const json = await res.json();
+  assertEquals(json.status, "sent");
+  assertEquals(json.service, "X");
+  assertEquals(json.pageCount, 1);
+
+  kv.close();
+});
+
+Deno.test("POST /api/message - 必須パラメータが不足している場合", async () => {
+  const kv = await Deno.openKv(":memory:");
+  const pageRepo = new PageRepository(kv);
+  const app = createApp(pageRepo);
+
+  const messageRequest = {
+    webhookId: "test-webhook",
+    // notification と from_timestamp が不足
+  };
+
+  const res = await app.request(
+    "/api/message",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(messageRequest),
+    },
+  );
+
+  assertEquals(res.status, 400);
+
+  kv.close();
+});
+
+Deno.test("POST /api/message - 無効な通知サービス名", async () => {
+  const kv = await Deno.openKv(":memory:");
+  const pageRepo = new PageRepository(kv);
+  const app = createApp(pageRepo);
+
+  const messageRequest = {
+    webhookId: "test-webhook",
+    notification: "InvalidService",
+    from_timestamp: new Date().toISOString(),
+  };
+
+  const res = await app.request(
+    "/api/message",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(messageRequest),
+    },
+  );
+
+  assertEquals(res.status, 400);
 
   kv.close();
 });
