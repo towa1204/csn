@@ -1,4 +1,5 @@
 import { TwitterApi } from "twitter-api-v2";
+import twitter from "twitter-text";
 import { Page } from "../../types.ts";
 import { NotificationServiceHandler, XConfig } from "./types.ts";
 
@@ -7,8 +8,6 @@ import { NotificationServiceHandler, XConfig } from "./types.ts";
  */
 export class XService implements NotificationServiceHandler {
   private static readonly TWEET_MAX_LENGTH = 280;
-  private static readonly URL_LENGTH = 23; // t.co短縮URL長
-  private static readonly URL_REGEX = /https?:\/\/[^\s]+/g;
 
   constructor(private readonly config: XConfig) {}
 
@@ -28,59 +27,97 @@ export class XService implements NotificationServiceHandler {
       return "更新されたページはありません。";
     }
 
-    let message = `📝 ページ更新通知 (${pages.length}件)\n\n`;
+    const header = `📝 ページ更新通知 (${pages.length}件)\n\n`;
+    let message = header;
     let addedCount = 0;
 
     for (let i = 0; i < pages.length; i++) {
       const page = pages[i];
       const pageEntry = this.buildPageEntry(page);
-      const tentativeMessage = message + pageEntry;
-
-      // 残りのページがある場合、"他X件の更新"メッセージも考慮
+      const messageWithPage = message + pageEntry;
       const remaining = pages.length - i - 1;
-      const remainingText = remaining > 0 ? `\n他${remaining}件の更新` : "";
-      const messageWithRemaining = tentativeMessage.trimEnd() + remainingText;
 
+      // 現在のページを追加した場合の長さをチェック
       if (
-        this.calculateTweetLength(tentativeMessage) > XService.TWEET_MAX_LENGTH
+        this.calculateTweetLength(messageWithPage) > XService.TWEET_MAX_LENGTH
       ) {
-        // 現在のページを追加できない場合
-        if (remaining > 0) {
-          const finalMessage = message.trimEnd() +
-            `\n他${remaining + 1}件の更新`;
-          // "他X件"を追加しても制限を超える場合は、さらにページを削る
-          if (
-            this.calculateTweetLength(finalMessage) >
-              XService.TWEET_MAX_LENGTH &&
-            addedCount > 0
-          ) {
-            // 最後のページエントリーを削除して再試行
-            const entries = message.split("\n\n").slice(0, -1);
-            message = entries.join("\n\n") + "\n\n";
-            return message.trimEnd() +
-              `\n他${pages.length - addedCount + 1}件の更新`;
-          }
-          message = finalMessage;
+        // 追加できない場合、残りの件数を表示
+        const totalRemaining = remaining + 1; // 現在のページも含む
+        const finalMessage = message.trimEnd() +
+          `\n\n他${totalRemaining}件の更新`;
+
+        // 残り件数メッセージを含めても制限を超える場合
+        if (
+          this.calculateTweetLength(finalMessage) > XService.TWEET_MAX_LENGTH
+        ) {
+          // 最後に追加したページを削除
+          return this.removeLastPageAndAddRemaining(header, pages, addedCount);
         }
-        break;
+
+        return finalMessage;
       }
 
-      // "他X件"を含めても制限内かチェック
+      // ページを追加
+      message = messageWithPage;
+      addedCount++;
+
+      // 最後のページの場合、残りメッセージは不要
+      if (remaining === 0) {
+        return message.trim();
+      }
+
+      // 残りがある場合、残りメッセージを追加した場合の長さもチェック
+      const messageWithRemaining = message.trimEnd() +
+        `\n\n他${remaining}件の更新`;
       if (
-        remaining > 0 &&
         this.calculateTweetLength(messageWithRemaining) >
           XService.TWEET_MAX_LENGTH
       ) {
-        // 含めると超える場合、このページは追加せずに終了
-        message = message.trimEnd() + `\n他${remaining + 1}件の更新`;
-        break;
-      }
+        // 残りメッセージを追加すると超える場合、現在のページは追加せずに終了
+        message = message.slice(0, message.lastIndexOf(pageEntry));
+        const finalRemaining = remaining + 1;
+        const finalMessage = message.trimEnd() +
+          `\n\n他${finalRemaining}件の更新`;
 
-      message += pageEntry;
-      addedCount++;
+        // それでも超える場合は更に削る
+        if (
+          this.calculateTweetLength(finalMessage) > XService.TWEET_MAX_LENGTH
+        ) {
+          return this.removeLastPageAndAddRemaining(
+            header,
+            pages,
+            addedCount - 1,
+          );
+        }
+
+        return finalMessage;
+      }
     }
 
     return message.trim();
+  }
+
+  /**
+   * 最後のページを削除して残り件数を追加
+   */
+  private removeLastPageAndAddRemaining(
+    header: string,
+    pages: Page[],
+    addedCount: number,
+  ): string {
+    if (addedCount === 0) {
+      // ヘッダーのみで残り全件を表示
+      return header.trimEnd() + `\n\n他${pages.length}件の更新`;
+    }
+
+    // addedCountまでのページを再構築
+    let message = header;
+    for (let i = 0; i < addedCount; i++) {
+      message += this.buildPageEntry(pages[i]);
+    }
+
+    const remaining = pages.length - addedCount;
+    return message.trimEnd() + `\n\n他${remaining}件の更新`;
   }
 
   /**
@@ -96,14 +133,11 @@ export class XService implements NotificationServiceHandler {
   }
 
   /**
-   * ツイートの文字数を計算（URLは23文字として扱う）
+   * ツイートの文字数を計算（Twitter公式ルールに従う）
    */
   private calculateTweetLength(text: string): number {
-    const textWithReplacedUrls = text.replace(
-      XService.URL_REGEX,
-      "x".repeat(XService.URL_LENGTH),
-    );
-    return textWithReplacedUrls.length;
+    const result = twitter.parseTweet(text);
+    return result.weightedLength;
   }
 
   /**
