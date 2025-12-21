@@ -29,22 +29,55 @@ export class XService implements NotificationServiceHandler {
     }
 
     let message = `📝 ページ更新通知 (${pages.length}件)\n\n`;
+    let addedCount = 0;
 
-    for (const page of pages) {
+    for (let i = 0; i < pages.length; i++) {
+      const page = pages[i];
       const pageEntry = this.buildPageEntry(page);
       const tentativeMessage = message + pageEntry;
+
+      // 残りのページがある場合、"他X件の更新"メッセージも考慮
+      const remaining = pages.length - i - 1;
+      const remainingText = remaining > 0 ? `\n他${remaining}件の更新` : "";
+      const messageWithRemaining = tentativeMessage.trimEnd() + remainingText;
 
       if (
         this.calculateTweetLength(tentativeMessage) > XService.TWEET_MAX_LENGTH
       ) {
-        const remaining = pages.length - pages.indexOf(page);
+        // 現在のページを追加できない場合
         if (remaining > 0) {
-          message += `\n他${remaining}件の更新`;
+          const finalMessage = message.trimEnd() +
+            `\n他${remaining + 1}件の更新`;
+          // "他X件"を追加しても制限を超える場合は、さらにページを削る
+          if (
+            this.calculateTweetLength(finalMessage) >
+              XService.TWEET_MAX_LENGTH &&
+            addedCount > 0
+          ) {
+            // 最後のページエントリーを削除して再試行
+            const entries = message.split("\n\n").slice(0, -1);
+            message = entries.join("\n\n") + "\n\n";
+            return message.trimEnd() +
+              `\n他${pages.length - addedCount + 1}件の更新`;
+          }
+          message = finalMessage;
         }
         break;
       }
 
+      // "他X件"を含めても制限内かチェック
+      if (
+        remaining > 0 &&
+        this.calculateTweetLength(messageWithRemaining) >
+          XService.TWEET_MAX_LENGTH
+      ) {
+        // 含めると超える場合、このページは追加せずに終了
+        message = message.trimEnd() + `\n他${remaining + 1}件の更新`;
+        break;
+      }
+
       message += pageEntry;
+      addedCount++;
     }
 
     return message.trim();
