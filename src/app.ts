@@ -6,9 +6,6 @@ import { handleWebhook } from "./routes/webhook.route.ts";
 import { handleMessageSend } from "./routes/message.route.ts";
 import { handleRegisterWebhook } from "./routes/admin.route.ts";
 
-// 後方互換性のためにエクスポート
-export { extractProjectName } from "./routes/webhook.route.ts";
-
 /**
  * Honoアプリケーションを作成（テスト可能）
  */
