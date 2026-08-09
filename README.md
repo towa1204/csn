@@ -76,7 +76,7 @@ http://localhost:8000/api/webhooks/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/slack
 
 `webhookId` が一致しない通知は `Invalid webhook ID` として拒否されます。
 
-受信したページ情報は `webhookId` ごとに Deno KV に保存され、1週間より古いデータは受信時に削除されます。
+受信したページ情報とサムネイル URL は `webhookId` ごとに Deno KV に保存され、1週間より古いデータは受信時に削除されます。
 
 ### 4. 通知を送る
 
@@ -93,6 +93,8 @@ curl -X POST http://localhost:8000/api/message \
 ```
 
 `notification` には `Discord` または `X` を指定します。
+
+Cosense の Webhook に `thumb_url` が含まれる場合、Discord では最大10件を埋め込み画像として投稿します。X では静止画を最大4件、またはGIFを1件添付し、取得できない画像やサイズ上限を超える画像はスキップします。
 
 ## 開発
 

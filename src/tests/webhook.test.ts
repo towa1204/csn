@@ -1,7 +1,7 @@
 import { assertEquals } from "@std/assert";
 import { createApp } from "../app.ts";
 import { PageRepository } from "../kv.ts";
-import { CosenseWebhookRequest } from "../types.ts";
+import { CosenseWebhookRequest, Page } from "../types.ts";
 
 Deno.test("POST /api/webhooks/:webhookId/slack - 未登録のwebhookId", async () => {
   const kv = await Deno.openKv(":memory:");
@@ -59,6 +59,7 @@ Deno.test("POST /api/webhooks/:webhookId/slack - 正常なリクエスト", asyn
         rawText: "Test raw",
         mrkdwn_in: [],
         author_name: "TestAuthor",
+        thumb_url: "https://example.com/thumbnail.png",
       },
     ],
   };
@@ -76,6 +77,20 @@ Deno.test("POST /api/webhooks/:webhookId/slack - 正常なリクエスト", asyn
   const json = await res.json();
   assertEquals(json.status, "received");
   assertEquals(json.count, 1);
+
+  const pageKey = [
+    "webhookId",
+    "test-webhook",
+    "projectName",
+    "test-project",
+    "pageName",
+    "TestPage",
+  ] as const;
+  const page = await kv.get(pageKey);
+  assertEquals(
+    (page.value as { thumbnailUrl?: string }).thumbnailUrl,
+    "https://example.com/thumbnail.png",
+  );
 
   kv.close();
 });
@@ -164,7 +179,7 @@ Deno.test("POST /api/webhooks/:webhookId/slack - 同じページを複数回更�
   ] as const;
   const entry = await kv.get(pageKey);
   assertEquals(entry.value !== null, true);
-  assertEquals((entry.value as any).authors.sort(), ["Author1", "Author2"]);
+  assertEquals((entry.value as Page).authors.sort(), ["Author1", "Author2"]);
 
   kv.close();
 });

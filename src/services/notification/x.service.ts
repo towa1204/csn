@@ -1,7 +1,125 @@
-import { TwitterApi } from "twitter-api-v2";
+import { Buffer } from "node:buffer";
+import { EUploadMimeType, TwitterApi } from "twitter-api-v2";
 import twitter from "twitter-text";
 import { Page } from "../../types.ts";
 import { NotificationServiceHandler, XConfig } from "./types.ts";
+
+type XMediaIds =
+  | [string]
+  | [string, string]
+  | [string, string, string]
+  | [string, string, string, string];
+
+const X_MAX_MEDIA_COUNT = 4;
+const X_MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const X_MAX_GIF_BYTES = 15 * 1024 * 1024;
+const X_IMAGE_FETCH_TIMEOUT_MS = 10_000;
+
+/**
+ * Xへ添付するサムネイルURLを重複なしで取得する
+ */
+export function selectThumbnailUrls(pages: Page[]): string[] {
+  return [
+    ...new Set(
+      pages.flatMap((page) => page.thumbnailUrl ? [page.thumbnailUrl] : []),
+    ),
+  ].slice(0, X_MAX_MEDIA_COUNT);
+}
+
+function toXMediaIds(mediaIds: string[]): XMediaIds | undefined {
+  switch (mediaIds.length) {
+    case 1:
+      return [mediaIds[0]];
+    case 2:
+      return [mediaIds[0], mediaIds[1]];
+    case 3:
+      return [mediaIds[0], mediaIds[1], mediaIds[2]];
+    case 4:
+      return [mediaIds[0], mediaIds[1], mediaIds[2], mediaIds[3]];
+    default:
+      return undefined;
+  }
+}
+
+function toXImageMimeType(contentType: string | null): EUploadMimeType | null {
+  const mimeType = contentType?.split(";")[0].trim().toLowerCase();
+
+  switch (mimeType) {
+    case EUploadMimeType.Jpeg:
+    case EUploadMimeType.Png:
+    case EUploadMimeType.Gif:
+    case EUploadMimeType.Webp:
+      return mimeType;
+    default:
+      return null;
+  }
+}
+
+/**
+ * Xの添付ルール上、候補のメディアを追加できるか判定する
+ */
+export function canAttachXMedia(
+  attachedMimeTypes: EUploadMimeType[],
+  candidateMimeType: EUploadMimeType,
+): boolean {
+  if (attachedMimeTypes.length === 0) {
+    return true;
+  }
+
+  if (
+    attachedMimeTypes.includes(EUploadMimeType.Gif) ||
+    candidateMimeType === EUploadMimeType.Gif
+  ) {
+    return false;
+  }
+
+  return attachedMimeTypes.length < X_MAX_MEDIA_COUNT;
+}
+
+/**
+ * レスポンス本文を上限サイズまで読み込む
+ */
+export async function readImageWithSizeLimit(
+  response: Response,
+  maxBytes: number,
+): Promise<Buffer> {
+  const contentLength = Number(response.headers.get("content-length"));
+  if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+    throw new Error(`Image exceeds size limit of ${maxBytes} bytes`);
+  }
+
+  if (!response.body) {
+    throw new Error("Image response body is empty");
+  }
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+
+      totalBytes += value.byteLength;
+      if (totalBytes > maxBytes) {
+        await reader.cancel();
+        throw new Error(`Image exceeds size limit of ${maxBytes} bytes`);
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  if (totalBytes === 0) {
+    throw new Error("Image response body is empty");
+  }
+
+  return Buffer.concat(chunks, totalBytes);
+}
 
 /**
  * X(Twitter)通知サービス
@@ -16,7 +134,7 @@ export class XService implements NotificationServiceHandler {
    */
   async send(pages: Page[]): Promise<void> {
     const message = this.formatMessage(pages);
-    await this.sendToX(message);
+    await this.sendToX(message, pages);
   }
 
   /**
@@ -143,7 +261,7 @@ export class XService implements NotificationServiceHandler {
   /**
    * X APIへ送信
    */
-  private async sendToX(message: string): Promise<void> {
+  private async sendToX(message: string, pages: Page[]): Promise<void> {
     console.log("=== X (Twitter) Post ===");
     console.log(message);
     console.log("========================");
@@ -163,7 +281,77 @@ export class XService implements NotificationServiceHandler {
       accessSecret: accessTokenSecret,
     });
 
-    const tweet = await client.readWrite.v2.tweet(message);
+    const mediaIds = await this.uploadThumbnails(client, pages);
+    const tweetMediaIds = toXMediaIds(mediaIds);
+    const tweet = await client.readWrite.v2.tweet(
+      message,
+      tweetMediaIds
+        ? {
+          media: {
+            media_ids: tweetMediaIds,
+          },
+        }
+        : undefined,
+    );
     console.log("Tweeted:", tweet.data);
+  }
+
+  /**
+   * ページのサムネイルをXへアップロードする
+   */
+  private async uploadThumbnails(
+    client: TwitterApi,
+    pages: Page[],
+  ): Promise<string[]> {
+    const thumbnailUrls = selectThumbnailUrls(pages);
+    const mediaIds: string[] = [];
+    const attachedMimeTypes: EUploadMimeType[] = [];
+
+    for (const thumbnailUrl of thumbnailUrls) {
+      try {
+        const response = await fetch(thumbnailUrl, {
+          signal: AbortSignal.timeout(X_IMAGE_FETCH_TIMEOUT_MS),
+        });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const contentType = response.headers.get("content-type");
+        const mimeType = toXImageMimeType(contentType);
+        if (!mimeType) {
+          throw new Error(
+            `Unsupported content type: ${contentType ?? "unknown"}`,
+          );
+        }
+
+        if (!canAttachXMedia(attachedMimeTypes, mimeType)) {
+          console.warn(
+            `Skipping thumbnail due to X media constraints: ${thumbnailUrl}`,
+          );
+          continue;
+        }
+
+        const maxBytes = mimeType === EUploadMimeType.Gif
+          ? X_MAX_GIF_BYTES
+          : X_MAX_IMAGE_BYTES;
+        const image = await readImageWithSizeLimit(response, maxBytes);
+        const mediaId = await client.readWrite.v2.uploadMedia(image, {
+          media_type: mimeType,
+        });
+        mediaIds.push(mediaId);
+        attachedMimeTypes.push(mimeType);
+
+        if (mimeType === EUploadMimeType.Gif) {
+          break;
+        }
+      } catch (error) {
+        console.error(
+          `Failed to upload thumbnail: ${thumbnailUrl}`,
+          error,
+        );
+      }
+    }
+
+    return mediaIds;
   }
 }

@@ -45,6 +45,7 @@ export async function handleWebhook(c: Context, pageRepo: PageRepository) {
       projectName,
       name: attachment.title,
       link: attachment.title_link,
+      thumbnailUrl: attachment.thumb_url?.trim() || undefined,
       authors: [attachment.author_name],
       updatedAt: dateJSTTimeFormat(new Date()),
     };

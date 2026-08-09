@@ -35,6 +35,7 @@ export type Page = {
   projectName: string;
   name: string;
   link: string;
+  thumbnailUrl?: string;
   authors: string[];
   updatedAt: string;
 };
