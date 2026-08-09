@@ -5,15 +5,18 @@ export type CosenseWebhookRequest = {
   "text": string;
   "mrkdown": boolean;
   "username": string;
-  "attachments": {
-    "title": string;
-    "title_link": string;
-    "text": string;
-    "rawText": string;
-    "mrkdwn_in": string[];
-    "author_name": string;
-    "thumb_url"?: string;
-  }[];
+  "attachments": CosenseWebhookAttachment[];
+};
+
+export type CosenseWebhookAttachment = {
+  "title"?: string;
+  "title_link"?: string;
+  "text"?: string;
+  "rawText"?: string;
+  "mrkdwn_in"?: string[];
+  "author_name"?: string;
+  "thumb_url"?: string;
+  "image_url"?: string;
 };
 
 /**

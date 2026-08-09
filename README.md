@@ -94,7 +94,7 @@ curl -X POST http://localhost:8000/api/message \
 
 `notification` には `Discord` または `X` を指定します。
 
-Cosense の Webhook に `thumb_url` が含まれる場合、Discord では最大10件を埋め込み画像として投稿します。X では静止画を最大4件、またはGIFを1件添付し、取得できない画像やサイズ上限を超える画像はスキップします。
+Cosense の Webhook に `thumb_url` または `image_url` が含まれる場合、Discord では最大10件を埋め込み画像として投稿します。X では静止画を最大4件、またはGIFを1件添付し、取得できない画像やサイズ上限を超える画像はスキップします。
 
 ## 開発
 

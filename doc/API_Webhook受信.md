@@ -34,7 +34,7 @@ CosenseからのWebhookを受信し、ページ情報をDeno KVに保存する�
       "rawText": "ページの生テキスト",
       "mrkdwn_in": ["text"],
       "author_name": "更新者名",
-      "thumb_url": "https://example.com/thumbnail.jpg"
+      "image_url": "https://example.com/thumbnail.jpg"
     }
   ]
 }
@@ -55,6 +55,9 @@ CosenseからのWebhookを受信し、ページ情報をDeno KVに保存する�
 | attachments[].mrkdwn_in   | string[] | はい   | Markdown適用対象               |
 | attachments[].author_name | string   | はい   | 更新者名                       |
 | attachments[].thumb_url   | string   | いいえ | サムネイルURL                  |
+| attachments[].image_url   | string   | いいえ | ページ画像URL                  |
+
+ページ内に複数の画像がある場合、Cosenseは2枚目以降を`image_url`だけを持つ画像専用attachmentとして送信する。ページattachment自身の画像を優先し、画像がなければ直後の画像専用attachmentの先頭をサムネイルとして保存する。
 
 ### バリデーション仕様
 

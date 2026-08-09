@@ -95,6 +95,114 @@ Deno.test("POST /api/webhooks/:webhookId/slack - 正常なリクエスト", asyn
   kv.close();
 });
 
+Deno.test("POST /api/webhooks/:webhookId/slack - image_urlをサムネイルとして保存", async () => {
+  const kv = await Deno.openKv(":memory:");
+  const pageRepo = new PageRepository(kv);
+  await pageRepo.registerWebhookId("test-webhook");
+  const app = createApp(pageRepo);
+
+  const webhookBody: CosenseWebhookRequest = {
+    text: "test",
+    mrkdown: true,
+    username: "testuser",
+    attachments: [
+      {
+        title: "ImagePage",
+        title_link: "https://scrapbox.io/test-project/ImagePage",
+        text: "Test content",
+        rawText: "Test raw",
+        mrkdwn_in: [],
+        author_name: "TestAuthor",
+        image_url: "https://gyazo.com/primary/max_size/2000",
+      },
+      { image_url: "https://gyazo.com/secondary/max_size/2000" },
+    ],
+  };
+
+  const res = await app.request(
+    "/api/webhooks/test-webhook/slack",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(webhookBody),
+    },
+  );
+
+  assertEquals(res.status, 200);
+  const json = await res.json();
+  assertEquals(json.count, 1);
+
+  const pageKey = [
+    "webhookId",
+    "test-webhook",
+    "projectName",
+    "test-project",
+    "pageName",
+    "ImagePage",
+  ] as const;
+  const page = await kv.get<Page>(pageKey);
+  assertEquals(
+    page.value?.thumbnailUrl,
+    "https://gyazo.com/primary/max_size/2000",
+  );
+
+  kv.close();
+});
+
+Deno.test("POST /api/webhooks/:webhookId/slack - 後続の画像専用attachmentをサムネイルとして保存", async () => {
+  const kv = await Deno.openKv(":memory:");
+  const pageRepo = new PageRepository(kv);
+  await pageRepo.registerWebhookId("test-webhook");
+  const app = createApp(pageRepo);
+
+  const webhookBody: CosenseWebhookRequest = {
+    text: "test",
+    mrkdown: true,
+    username: "testuser",
+    attachments: [
+      {
+        title: "ImagePage",
+        title_link: "https://scrapbox.io/test-project/ImagePage",
+        text: "Test content",
+        rawText: "Test raw",
+        mrkdwn_in: [],
+        author_name: "TestAuthor",
+      },
+      { image_url: "https://gyazo.com/primary/max_size/2000" },
+      { image_url: "https://gyazo.com/secondary/max_size/2000" },
+    ],
+  };
+
+  const res = await app.request(
+    "/api/webhooks/test-webhook/slack",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(webhookBody),
+    },
+  );
+
+  assertEquals(res.status, 200);
+  const json = await res.json();
+  assertEquals(json.count, 1);
+
+  const pageKey = [
+    "webhookId",
+    "test-webhook",
+    "projectName",
+    "test-project",
+    "pageName",
+    "ImagePage",
+  ] as const;
+  const page = await kv.get<Page>(pageKey);
+  assertEquals(
+    page.value?.thumbnailUrl,
+    "https://gyazo.com/primary/max_size/2000",
+  );
+
+  kv.close();
+});
+
 Deno.test("POST /api/webhooks/:webhookId/slack - attachmentsが空", async () => {
   const kv = await Deno.openKv(":memory:");
   const pageRepo = new PageRepository(kv);
